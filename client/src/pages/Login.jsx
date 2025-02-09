@@ -15,8 +15,9 @@ const Login = () => {
         email , password
     })
     if(res.data){
-      login(res.data);
-      navigate('/new');
+      login(res.data.user);
+      console.log(res.data.user);
+      navigate('/home');
     }
   }
   return (

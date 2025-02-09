@@ -1,61 +1,70 @@
 import React, { useState, useEffect, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
-import { FaFolder, FaFile, FaChevronRight, FaPlus } from "react-icons/fa";
+import { FaFolder, FaFile, FaChevronRight, FaFileCode } from "react-icons/fa";
 import { ThemeContext } from '@/ThemeContext';
 import { Sun, Moon } from 'lucide-react';
+
+import axios from "axios";
 
 const ProjectView = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState(null);
-  const [breadcrumb, setBreadcrumb] = useState([]); // Store folder hierarchy
-  const [currentFolderId, setCurrentFolderId] = useState(null); // Track current folder
+  const [breadcrumb, setBreadcrumb] = useState([]);
+  const [currentFolderId, setCurrentFolderId] = useState(null);
   const [items, setItems] = useState({ folders: [], files: [] });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newItemName, setNewItemName] = useState("");
   const [isFolder, setIsFolder] = useState(false);
+  const [isModalClosing, setIsModalClosing] = useState(false);
   const { theme, toggleTheme } = useContext(ThemeContext);
 
-    useEffect(() => {
-      fetchProjectContents();
-    }, [projectId, currentFolderId]);
+  useEffect(() => {
+    fetchProjectContents();
+  }, [projectId, currentFolderId]);
 
-    const fetchProjectContents = async () => {
-      try {
-        const response = await axios.get(`/projects/${projectId}/contents`, {
-          params: { currentFolderId }
-        });
-        setProject(response.data.project);
-        setItems(response.data.contents);
-        
-        // If we're in a subfolder, update the breadcrumb
-        if (response.data.currentFolder && currentFolderId) {
-          const folder = response.data.currentFolder;
-          if (!breadcrumb.find(b => b.id === folder._id)) {
-            setBreadcrumb([...breadcrumb, { id: folder._id, name: folder.name }]);
-          }
+  const fetchProjectContents = async () => {
+    try {
+      const response = await axios.get(`/projects/${projectId}/contents`, {
+        params: { currentFolderId }
+      });
+      setProject(response.data.project);
+      setItems(response.data.contents);
+      
+      if (response.data.currentFolder && currentFolderId) {
+        const folder = response.data.currentFolder;
+        if (!breadcrumb.find(b => b.id === folder._id)) {
+          setBreadcrumb([...breadcrumb, { id: folder._id, name: folder.name }]);
         }
-      } catch (error) {
-        console.error('Error fetching project contents:', error);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching project contents:', error);
+    }
+  };
 
-    const handleCreateItem = async () => {
-      try {
-        const response = await axios.post(`/projects/${projectId}/create`, {
-          name: newItemName,
-          isFolder,
-          currentFolderId
-        });
-        setShowCreateModal(false);
-        setNewItemName('');
-        fetchProjectContents();
-      } catch (error) {
-        console.error('Error creating item:', error);
-        alert(error.response?.data?.message || 'Error creating item');
-      }
-    };
+  const closeModal = () => {
+    setIsModalClosing(true);
+    setTimeout(() => {
+      setShowCreateModal(false);
+      setIsModalClosing(false);
+    }, 300);
+  };
+
+  const handleCreateItem = async () => {
+    try {
+      await axios.post(`/projects/${projectId}/create`, {
+        name: newItemName,
+        isFolder,
+        currentFolderId
+      });
+      closeModal();
+      setNewItemName('');
+      fetchProjectContents();
+    } catch (error) {
+      console.error('Error creating item:', error);
+      alert(error.response?.data?.message || 'Error creating item');
+    }
+  };
 
   const handleItemClick = (item) => {
     if (item.isFolder) {
@@ -67,136 +76,160 @@ const ProjectView = () => {
 
   const navigateToBreadcrumb = (index) => {
     if (index === -1) {
-      // Navigate to root
       setCurrentFolderId(null);
       setBreadcrumb([]);
     } else {
-      // Navigate to specific folder
       setCurrentFolderId(breadcrumb[index].id);
       setBreadcrumb(breadcrumb.slice(0, index + 1));
     }
   };
 
   return (
-    <div className={`min-h-screen ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
-      {/* Header with Breadcrumb */}
-      <header className={`sticky top-0 z-50 w-full border-b shadow-sm ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-gray-50 text-gray-900'} `}>
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3 text-xl">
-            <span
-              className={`flex items-center gap-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'} text-3xl font-bold hover:text-blue-800 cursor-pointer transition-colors`}
-              onClick={() => navigateToBreadcrumb(-1)}
-            >
-              <FaFolder className="w-6 h-6 text-yellow-500" />
-              {project?.name}
-            </span>
-            {breadcrumb.map((folder, index) => (
-              <React.Fragment key={folder.id}>
-                <FaChevronRight className="w-5 h-5 text-gray-400" />
-                <span
-                  className={`flex items-center gap-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'} text-xl font-semibold hover:text-blue-800 cursor-pointer transition-colors`}
-                  onClick={() => navigateToBreadcrumb(index)}
-                >
-                  <FaFolder className="w-5 h-5 text-yellow-500" />
-                  {folder.name}
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} transition-colors duration-300`}>
+      <header className={`sticky top-0 z-50 backdrop-blur-sm ${theme === 'dark' ? 'bg-gray-900/95' : 'bg-white/95'} border-b transition-all duration-300`}>
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3 overflow-x-auto whitespace-nowrap pb-2">
+              <span
+                className="flex items-center gap-2 text-3xl font-bold cursor-pointer transform hover:scale-105 transition-all duration-300"
+                onClick={() => navigateToBreadcrumb(-1)}
+              >
+                <FaFolder className="w-6 h-6 text-yellow-500 animate-bounce" />
+                <span className="bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
+                  {project?.name}
                 </span>
-              </React.Fragment>
-            ))}
+              </span>
+              {breadcrumb.map((folder, index) => (
+                <React.Fragment key={folder.id}>
+                  <FaChevronRight className="w-5 h-5 text-gray-400 animate-pulse" />
+                  <span
+                    className="flex items-center gap-2 text-xl font-semibold cursor-pointer hover:text-blue-500 transition-all duration-300 transform hover:scale-105"
+                    onClick={() => navigateToBreadcrumb(index)}
+                  >
+                    <FaFolder className="w-5 h-5 text-yellow-500" />
+                    {folder.name}
+                  </span>
+                </React.Fragment>
+              ))}
+            </div>
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-110"
+            >
+              {theme === 'dark' ? 
+                <Sun className="h-5 w-5" /> : 
+                <Moon className="h-5 w-5" />
+              }
+            </button>
           </div>
-          <button 
-            onClick={toggleTheme}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            {theme === 'dark' ? 
-              <Sun className="h-6 w-6" /> : 
-              <Moon className="h-6 w-6" />
-            }
-          </button>
         </div>
       </header>
 
-      {/* Create New Button - Centered */}
       <div className="flex justify-center mb-8 mt-8">
         <button
-          className="mb-4 flex items-center px-4 py-2 bg-blue-500 text-white rounded"
+          className="group mb-4 flex items-center px-10 py-6 text-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-3xl transform hover:scale-105 transition-all duration-300 hover:shadow-xl"
           onClick={() => setShowCreateModal(true)}
         >
-          <FaPlus className="w-4 h-4 mr-2" />
+          <FaFileCode size={30} className="m-2 group-hover:rotate-12 transition-transform duration-300" />
           Create New
         </button>
       </div>
 
-      {/* Items Grid */}
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.folders.map((folder) => (
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {items.folders.map((folder, index) => (
             <div
               key={folder._id}
-              className={`border p-4 rounded cursor-pointer transition-all duration-200 
-                ${theme === 'dark' ? 
-                  'text-white border-gray-700 hover:border-blue-500 hover:bg-gray-800' : 
-                  'text-gray-900 border-gray-200 hover:border-blue-500 hover:bg-blue-50'
-                }`}
+              style={{ animationDelay: `${index * 100}ms` }}
+              className={`p-6 rounded-xl cursor-pointer transition-all duration-300 transform hover:scale-105
+                animate-fadeIn border-2 hover:shadow-xl
+                ${theme === 'dark' 
+                  ? 'bg-gray-800 border-gray-700 hover:border-blue-500' 
+                  : 'bg-white border-gray-200 hover:border-blue-500'}`}
               onClick={() => handleItemClick(folder)}
             >
               <div className="flex items-center gap-3">
-                <FaFolder className="w-5 h-5 text-yellow-500" />
-                <h3 className="font-bold">{folder.name}</h3>
+                <FaFolder className="w-6 h-6 text-yellow-500 group-hover:rotate-12 transition-transform duration-300" />
+                <h3 className="font-bold text-lg">{folder.name}</h3>
               </div>
-              <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Folder</p>
+              <p className={`text-sm mt-2 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Folder</p>
             </div>
           ))}
-          {items.files.map((file) => (
+          {items.files.map((file, index) => (
             <div
               key={file._id}
-              className={`border p-4 rounded cursor-pointer transition-all duration-200 
-                ${theme === 'dark' ? 
-                  'text-white border-gray-700 hover:border-blue-500 hover:bg-gray-800' : 
-                  'text-gray-900 border-gray-200 hover:border-blue-500 hover:bg-blue-50'
-                }`}
+              style={{ animationDelay: `${(items.folders.length + index) * 100}ms` }}
+              className={`p-6 rounded-xl cursor-pointer transition-all duration-300 transform hover:scale-105
+                animate-fadeIn border-2 hover:shadow-xl
+                ${theme === 'dark' 
+                  ? 'bg-gray-800 border-gray-700 hover:border-blue-500' 
+                  : 'bg-white border-gray-200 hover:border-blue-500'}`}
               onClick={() => handleItemClick(file)}
             >
               <div className="flex items-center gap-3">
-                <FaFile className="w-5 h-5 text-blue-500" />
-                <h3 className="font-bold">{file.name}</h3>
+                <FaFile className="w-6 h-6 text-blue-500 group-hover:rotate-12 transition-transform duration-300" />
+                <h3 className="font-bold text-lg">{file.name}</h3>
               </div>
-              <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>File</p>
+              <p className={`text-sm mt-2 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>File</p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Create Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className={`bg-white p-6 rounded-lg w-96 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-            <h2 className="text-2xl font-bold mb-4">Create New Item</h2>
-            <div className="flex flex-col gap-4">
+        <div 
+          className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center transition-opacity duration-300
+            ${isModalClosing ? 'opacity-0' : 'opacity-100'}`}
+          onClick={closeModal}
+        >
+          <div 
+            className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} p-8 rounded-xl w-96 shadow-2xl
+              transform transition-all duration-300 ${isModalClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}`}
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 className={`text-2xl font-bold mb-6 bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent`}>
+              Create New Item
+            </h2>
+            <div className="space-y-6">
               <input
                 type="text"
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
                 placeholder="Name"
-                className="w-full p-2 border rounded mb-4"
+                className={`w-full p-3 border-2 rounded-lg transition-all duration-200 focus:scale-[1.02]
+                  ${theme === 'dark' 
+                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                    : 'bg-white border-gray-200 text-gray-900 focus:border-blue-500'}`}
               />
-              <label className="flex items-center mb-4">
-                <input
-                  type="checkbox"
-                  checked={isFolder}
-                  onChange={(e) => setIsFolder(e.target.checked)}
-                  className="mr-2"
-                />
+              <label className={`flex items-center gap-3 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={isFolder}
+                    onChange={(e) => setIsFolder(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className={`w-11 h-6 rounded-full peer-focus:ring-2 peer-focus:ring-blue-500 
+                    after:content-[''] after:absolute after:top-0.5 after:left-0.5 
+                    after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all
+                    peer-checked:after:translate-x-full ${
+                      theme === 'dark' ? 'bg-gray-600 peer-checked:bg-blue-500' : 'bg-gray-300 peer-checked:bg-blue-600'
+                    }`}
+                  />
+                </div>
                 Is Folder
               </label>
-              <div className="flex justify-end space-x-2">
+              <div className="flex justify-end gap-4">
                 <button
-                  className="px-4 py-2 text-gray-600"
-                  onClick={() => setShowCreateModal(false)}
+                  className={`px-4 py-2 rounded-lg transition-all duration-300 hover:scale-105
+                    ${theme === 'dark' ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                  onClick={closeModal}
                 >
                   Cancel
                 </button>
                 <button
-                  className="px-4 py-2 bg-blue-500 text-white rounded"
+                  className="px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg
+                    transition-all duration-300 hover:scale-105 hover:shadow-lg"
                   onClick={handleCreateItem}
                 >
                   Create
@@ -205,9 +238,9 @@ const ProjectView = () => {
             </div>
           </div>
         </div>
-        )}
+      )}
     </div>
-    )
-  };
+  );
+};
 
-  export default ProjectView;
+export default ProjectView;
